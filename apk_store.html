@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yuska APK Anbarı</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+  :root {
+    --bg:#0d0f14;--surface:#151820;--surface2:#1c2030;--border:#252a3a;
+    --accent:#4f8ef7;--accent2:#7c3aed;--success:#22c55e;
+    --text:#e8eaf0;--text2:#8892aa;--text3:#5a6478;
+    --mono:'JetBrains Mono',monospace;--sans:'Space Grotesk',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;}
+
+  header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:rgba(13,15,20,0.95);backdrop-filter:blur(12px);z-index:100;}
+  .logo{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:700;}
+  .logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;}
+  .header-stats{display:flex;gap:12px;font-size:12px;color:var(--text2);font-family:var(--mono);}
+  .stat-val{color:var(--accent);font-weight:600;}
+
+  /* Upload zone - kompakt */
+  .upload-zone{margin:16px;border:2px dashed var(--border);border-radius:14px;padding:20px 16px;text-align:center;cursor:pointer;transition:all 0.2s;background:var(--surface);position:relative;}
+  .upload-zone:hover,.upload-zone.drag-over{border-color:var(--accent);background:rgba(79,142,247,0.05);}
+  .upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+  .upload-row{display:flex;align-items:center;justify-content:center;gap:12px;}
+  .upload-icon{font-size:24px;}
+  .upload-text{text-align:left;}
+  .upload-title{font-size:14px;font-weight:600;margin-bottom:2px;}
+  .upload-sub{font-size:12px;color:var(--text3);}
+
+  .progress-wrap{margin:0 16px 16px;display:none;}
+  .progress-wrap.active{display:block;}
+  .progress-label{display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:6px;font-family:var(--mono);}
+  .progress-bar{height:5px;background:var(--border);border-radius:99px;overflow:hidden;}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:99px;width:0%;transition:width 0.3s;}
+
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 18px;font-size:13px;opacity:0;transition:all 0.3s;z-index:999;white-space:nowrap;}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+  .toast.success{border-color:var(--success);}
+  .toast.error{border-color:#ef4444;}
+
+  .filter-bar{margin:0 16px 12px;display:flex;gap:8px;}
+  .search-box{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;transition:border-color 0.2s;}
+  .search-box:focus{border-color:var(--accent);}
+  .search-box::placeholder{color:var(--text3);}
+  .sort-btn{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 10px;color:var(--text2);font-size:12px;cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+  .sort-btn.active{border-color:var(--accent);color:var(--accent);}
+
+  .section-title{margin:0 16px 10px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-family:var(--mono);}
+
+  /* APK list - kompakt kartlar */
+  .apk-list{padding:0 16px 20px;display:flex;flex-direction:column;gap:8px;}
+  .apk-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;align-items:center;gap:10px;transition:all 0.2s;animation:fadeIn 0.3s ease;}
+  .apk-card:hover{border-color:rgba(79,142,247,0.4);background:var(--surface2);}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+  .apk-num{font-family:var(--mono);font-size:11px;color:var(--text3);min-width:22px;text-align:center;}
+  .apk-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+  .apk-info{flex:1;min-width:0;}
+  .apk-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;}
+  .apk-meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+  .apk-size{font-family:var(--mono);font-size:11px;color:var(--text2);background:var(--surface2);padding:1px 6px;border-radius:5px;}
+  .apk-date{font-size:11px;color:var(--text3);}
+  .apk-tag{font-size:10px;padding:1px 6px;border-radius:5px;font-weight:600;background:rgba(79,142,247,0.1);color:var(--accent);}
+
+  .apk-actions{display:flex;gap:6px;flex-shrink:0;}
+  .btn-dl{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:8px;padding:7px 12px;color:#fff;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;display:flex;align-items:center;gap:4px;transition:opacity 0.2s;}
+  .btn-dl:hover{opacity:0.85;}
+  .btn-icon{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 9px;color:var(--text2);cursor:pointer;font-size:13px;transition:all 0.2s;}
+  .btn-icon:hover{border-color:var(--accent);color:var(--accent);}
+  .btn-del{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 9px;color:var(--text3);cursor:pointer;font-size:13px;transition:all 0.2s;}
+  .btn-del:hover{border-color:#ef4444;color:#ef4444;}
+
+  .empty{text-align:center;padding:48px 20px;color:var(--text3);}
+  .empty-icon{font-size:40px;margin-bottom:12px;opacity:0.5;}
+  .empty-title{font-size:15px;font-weight:600;margin-bottom:6px;color:var(--text2);}
+  .empty-sub{font-size:13px;}
+  .loading-bar{text-align:center;padding:32px;color:var(--text3);font-size:13px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">📦</div>
+    Yuska APK Anbarı
+  </div>
+  <div class="header-stats">
+    <span><span class="stat-val" id="totalCount">0</span> fayl</span>
+    <span><span class="stat-val" id="totalSize">0 MB</span></span>
+  </div>
+</header>
+
+<div class="upload-zone" id="uploadZone">
+  <input type="file" id="fileInput">
+  <div class="upload-row">
+    <div class="upload-icon">⬆️</div>
+    <div class="upload-text">
+      <div class="upload-title">Fayl yüklə</div>
+      <div class="upload-sub">Basa bas və ya sürüklə • Maks 50MB</div>
+    </div>
+  </div>
+</div>
+
+<div class="progress-wrap" id="progressWrap">
+  <div class="progress-label">
+    <span id="progressName">Yüklənir...</span>
+    <span id="progressPct">0%</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+</div>
+
+<div class="filter-bar">
+  <input class="search-box" type="text" id="searchBox" placeholder="🔍  Axtar...">
+  <button class="sort-btn active" id="sortNew" onclick="setSort('new')">Yeni</button>
+  <button class="sort-btn" id="sortOld" onclick="setSort('old')">Köhnə</button>
+</div>
+
+<div class="section-title" id="listLabel">FAYLLAR</div>
+<div class="apk-list" id="apkList"><div class="loading-bar">⏳ Yüklənir...</div></div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, orderBy, query } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBeN5gC22clhNWI21T8wIGLBZYOVVM4rJU",
+  authDomain: "apk-yukleme.firebaseapp.com",
+  projectId: "apk-yukleme",
+  storageBucket: "apk-yukleme.firebasestorage.app",
+  messagingSenderId: "153532354471",
+  appId: "1:153532354471:web:7fefb7745cd27b96a23082"
+};
+
+const SUPABASE_URL = 'https://bvdfjgriiawbdghndmtu.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_RGbDBp4P5u2zTj0lbfVZ-w_54dfZ8UL';
+const BUCKET = 'apk-files';
+
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+
+let apkData = [];
+let sortMode = 'new';
+
+function fmtSize(b){if(!b)return'?';if(b<1048576)return(b/1024).toFixed(1)+' KB';return(b/1048576).toFixed(1)+' MB';}
+function fmtDate(ts){return new Date(ts).toLocaleDateString('az-AZ',{day:'2-digit',month:'short',year:'numeric'});}
+function getIcon(e){return{APK:'📱',AAB:'📦',ZIP:'🗜️',MCADDON:'⛏️',MCPACK:'🎮'}[e]||'📄';}
+
+async function loadData() {
+  try {
+    const q = query(collection(db,'apk_files'), orderBy('uploadedAt','desc'));
+    const snap = await getDocs(q);
+    apkData = snap.docs.map(d=>({...d.data(),docId:d.id}));
+    renderList(); updateStats();
+  } catch(e) {
+    document.getElementById('apkList').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Xəta</div><div class="empty-sub">${e.message}</div></div>`;
+  }
+}
+
+async function uploadToSupabase(file) {
+  const pw = document.getElementById('progressWrap');
+  const pf = document.getElementById('progressFill');
+  const pn = document.getElementById('progressName');
+  const pp = document.getElementById('progressPct');
+  pw.classList.add('active');
+  pn.textContent = file.name;
+  pf.style.width = '0%';
+  pp.textContent = '0%';
+
+  const fileName = `${Date.now()}_${file.name}`;
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${fileName}`);
+    xhr.setRequestHeader('Authorization', `Bearer ${SUPABASE_KEY}`);
+    xhr.setRequestHeader('x-upsert', 'true');
+    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        const pct = Math.round(e.loaded/e.total*100);
+        pf.style.width = pct+'%';
+        pp.textContent = pct+'%';
+      }
+    };
+
+    xhr.onload = () => {
+      pw.classList.remove('active');
+      if (xhr.status === 200 || xhr.status === 201) {
+        const url = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${fileName}`;
+        resolve(url);
+      } else {
+        reject(new Error('Supabase xətası: ' + xhr.status + ' ' + xhr.responseText));
+      }
+    };
+
+    xhr.onerror = () => { pw.classList.remove('active'); reject(new Error('Şəbəkə xətası')); };
+    xhr.send(file);
+  });
+}
+
+async function handleUpload(file) {
+  showToast('⬆️ Yüklənir: '+file.name, 'info');
+  try {
+    const url = await uploadToSupabase(file);
+    const entry = {
+      name: file.name, url, size: file.size,
+      uploadedAt: Date.now(),
+      ext: file.name.split('.').pop().toUpperCase()
+    };
+    const docRef = await addDoc(collection(db,'apk_files'), entry);
+    apkData.unshift({...entry, docId: docRef.id});
+    renderList(); updateStats();
+    showToast('✅ Yükləndi!', 'success');
+  } catch(err) {
+    console.error(err);
+    showToast('❌ '+err.message, 'error');
+  }
+}
+
+async function deleteEntry(docId, url) {
+  if (!confirm('Silmək istəyirsən?')) return;
+  try {
+    const fileName = url.split('/').pop();
+    await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${fileName}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+  } catch(e) {}
+  await deleteDoc(doc(db,'apk_files',docId));
+  apkData = apkData.filter(a=>a.docId!==docId);
+  renderList(); updateStats();
+  showToast('🗑️ Silindi','info');
+}
+
+function renderList() {
+  const list = document.getElementById('apkList');
+  const q = document.getElementById('searchBox').value.toLowerCase();
+  let data = [...apkData];
+  if (q) data = data.filter(a=>a.name.toLowerCase().includes(q));
+  if (sortMode==='old') data.reverse();
+  document.getElementById('listLabel').textContent = q?`FAYLLAR · "${q}"`:'FAYLLAR';
+  if (!data.length) {
+    list.innerHTML=`<div class="empty"><div class="empty-icon">📂</div><div class="empty-title">${q?'Tapılmadı':'Hələ fayl yoxdur'}</div><div class="empty-sub">${q?'Başqa söz sına':'Yuxarıdan fayl yüklə'}</div></div>`;
+    return;
+  }
+  list.innerHTML = data.map((a,i)=>`
+    <div class="apk-card">
+      <div class="apk-num">${(i+1).toString().padStart(2,'0')}</div>
+      <div class="apk-icon">${getIcon(a.ext)}</div>
+      <div class="apk-info">
+        <div class="apk-name" title="${a.name}">${a.name}</div>
+        <div class="apk-meta">
+          <span class="apk-tag">${a.ext}</span>
+          <span class="apk-size">${fmtSize(a.size)}</span>
+          <span class="apk-date">${fmtDate(a.uploadedAt)}</span>
+        </div>
+      </div>
+      <div class="apk-actions">
+        <a class="btn-dl" href="${a.url}" target="_blank" download>⬇️</a>
+        <button class="btn-icon" onclick="navigator.clipboard.writeText('${a.url}').then(()=>window._toast('✅ Kopyalandı!','success'))" title="Linki kopyala">🔗</button>
+        <button class="btn-del" onclick="window._del('${a.docId}','${a.url}')" title="Sil">🗑️</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateStats() {
+  document.getElementById('totalCount').textContent = apkData.length;
+  const total = apkData.reduce((s,a)=>s+(a.size||0),0);
+  document.getElementById('totalSize').textContent = fmtSize(total);
+}
+
+function setSort(mode) {
+  sortMode = mode;
+  document.getElementById('sortNew').classList.toggle('active',mode==='new');
+  document.getElementById('sortOld').classList.toggle('active',mode==='old');
+  renderList();
+}
+
+let toastTimer;
+function showToast(msg,type='info') {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast show '+type;
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+window._del=deleteEntry;
+window._toast=showToast;
+window.setSort=setSort;
+
+document.getElementById('fileInput').addEventListener('change',async(e)=>{
+  const file=e.target.files[0]; if(!file) return;
+  await handleUpload(file); e.target.value='';
+});
+
+const zone=document.getElementById('uploadZone');
+zone.addEventListener('dragover',(e)=>{e.preventDefault();zone.classList.add('drag-over');});
+zone.addEventListener('dragleave',()=>zone.classList.remove('drag-over'));
+zone.addEventListener('drop',async(e)=>{
+  e.preventDefault();zone.classList.remove('drag-over');
+  const file=e.dataTransfer.files[0]; if(file) await handleUpload(file);
+});
+
+document.getElementById('searchBox').addEventListener('input',renderList);
+loadData();
+</script>
+</body>
+</html>
