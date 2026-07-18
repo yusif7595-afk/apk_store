@@ -172,8 +172,7 @@ async function uploadToGofile(file) {
         progressWrap.classList.remove('active');
         const res = JSON.parse(xhr.responseText);
         if (res.status==='ok') {
-          // Birbaşa yükləmə linki
-          const dlLink = `https://gofile.io/d/${res.data.folderId}`;
+          const dlLink = res.data.downloadPage || `https://gofile.io/d/${res.data.parentFolder}`;
           resolve(dlLink);
         } else {
           reject(new Error('Gofile xətası: '+JSON.stringify(res)));
