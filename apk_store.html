@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cloud Files</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+  :root {
+    --bg:#0d0f14;--surface:#151820;--surface2:#1c2030;--surface3:#252b3d;--border:#252a3a;
+    --accent:#4f8ef7;--accent2:#7c3aed;--success:#22c55e;
+    --text:#e8eaf0;--text2:#8892aa;--text3:#5a6478;
+    --mono:'JetBrains Mono',monospace;--sans:'Space Grotesk',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;}
+
+  header{padding:14px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(13,15,20,0.95);backdrop-filter:blur(12px);z-index:100;}
+  .header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .logo{display:flex;align-items:center;gap:9px;font-size:16px;font-weight:700;}
+  .logo-icon{width:30px;height:30px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;}
+  .header-count{font-size:11px;color:var(--text2);font-family:var(--mono);}
+
+  /* Selection mode toolbar */
+  .selection-toolbar{display:none;margin-bottom:10px;}
+  .selection-toolbar.active{display:block;}
+  .header-top.hidden{display:none;}
+  .sel-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .sel-x{background:var(--surface2);border:1px solid var(--border);color:var(--text2);width:30px;height:30px;border-radius:9px;font-size:14px;cursor:pointer;}
+  .sel-count{font-size:13px;font-weight:600;color:var(--text);}
+  .sel-all{background:none;border:none;color:var(--accent);font-size:12px;font-family:var(--sans);font-weight:600;cursor:pointer;}
+  .sel-actions{display:flex;gap:8px;}
+  .sel-action-btn{flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:9px;border-radius:10px;font-size:12px;font-weight:600;font-family:var(--sans);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;}
+  .sel-action-btn:first-child{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;}
+  .sel-action-btn.danger{color:#ef4444;border-color:#ef444444;}
+  .sel-action-btn:disabled{opacity:0.4;pointer-events:none;}
+
+  .apk-card.select-mode{cursor:pointer;}
+  .apk-checkbox{width:20px;height:20px;border-radius:6px;border:2px solid var(--border);flex-shrink:0;display:none;align-items:center;justify-content:center;font-size:12px;color:transparent;transition:all 0.15s;}
+  .apk-list.select-mode .apk-checkbox{display:flex;}
+  .apk-list.select-mode .apk-card-download,
+  .apk-list.select-mode .apk-chevron{display:none;}
+  .apk-card.selected .apk-checkbox{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .apk-card.selected{border-color:var(--accent);background:rgba(79,142,247,0.06);}
+  .apk-card-download{background:var(--surface2);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:14px;text-decoration:none;flex-shrink:0;transition:all 0.15s;}
+  .apk-card-download:hover{border-color:var(--accent);color:var(--accent);}
+
+  /* Storage usage bar */
+  .storage-bar-wrap{display:flex;align-items:center;gap:8px;}
+  .storage-track{flex:1;height:6px;background:var(--surface2);border-radius:99px;overflow:hidden;position:relative;}
+  .storage-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:99px;transition:width 0.4s;}
+  .storage-label{font-size:11px;font-family:var(--mono);color:var(--text2);white-space:nowrap;}
+  .storage-label b{color:var(--accent);font-weight:600;}
+
+  /* Breadcrumb / folder path */
+  .breadcrumb{padding:10px 16px;display:flex;align-items:center;gap:4px;font-size:12px;font-family:var(--mono);color:var(--text2);overflow-x:auto;white-space:nowrap;}
+  .crumb{cursor:pointer;padding:4px 8px;border-radius:6px;transition:all .15s;}
+  .crumb:hover{background:var(--surface2);color:var(--text);}
+  .crumb.active{color:var(--accent);font-weight:600;}
+  .crumb-sep{color:var(--text3);}
+
+  .upload-zone{margin:12px 16px;border:2px dashed var(--border);border-radius:14px;padding:18px 16px;text-align:center;cursor:pointer;transition:all 0.2s;background:var(--surface);position:relative;}
+  .upload-zone:hover,.upload-zone.drag-over{border-color:var(--accent);background:rgba(79,142,247,0.05);}
+  .upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+  .upload-row{display:flex;align-items:center;justify-content:center;gap:10px;}
+  .upload-icon{font-size:22px;}
+  .upload-text{text-align:left;}
+  .upload-title{font-size:13px;font-weight:600;margin-bottom:2px;}
+  .upload-sub{font-size:11px;color:var(--text3);}
+
+  /* New folder button */
+  .action-row{margin:0 16px 12px;display:flex;gap:8px;}
+  .btn-newfolder{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px;color:var(--text2);font-family:var(--sans);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .2s;}
+  .btn-newfolder:hover{border-color:var(--accent);color:var(--accent);}
+
+  .progress-wrap{margin:0 16px 16px;display:none;}
+  .progress-wrap.active{display:block;}
+  .progress-label{display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:6px;font-family:var(--mono);}
+  .progress-bar{height:5px;background:var(--border);border-radius:99px;overflow:hidden;}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:99px;width:0%;transition:width 0.3s;}
+
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 18px;font-size:13px;opacity:0;transition:all 0.3s;z-index:999;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis;}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+  .toast.success{border-color:var(--success);}
+  .toast.error{border-color:#ef4444;}
+
+  .filter-bar{margin:0 16px 12px;display:flex;gap:8px;position:relative;}
+  .search-box{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;transition:border-color 0.2s;}
+  .search-box:focus{border-color:var(--accent);}
+  .search-box::placeholder{color:var(--text3);}
+
+  /* Filter icon button + dropdown */
+  .filter-icon-btn{background:var(--surface);border:1px solid var(--border);border-radius:10px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;color:var(--text2);cursor:pointer;transition:all .2s;flex-shrink:0;}
+  .filter-icon-btn.active{border-color:var(--accent);color:var(--accent);}
+  .filter-dropdown{position:absolute;top:44px;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:6px;z-index:50;display:none;min-width:150px;box-shadow:0 8px 24px rgba(0,0,0,0.4);}
+  .filter-dropdown.open{display:block;}
+  .filter-opt{padding:9px 12px;border-radius:8px;font-size:13px;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:all .15s;}
+  .filter-opt:hover{background:var(--surface3);color:var(--text);}
+  .filter-opt.selected{color:var(--accent);}
+  .filter-check{opacity:0;font-size:13px;}
+  .filter-opt.selected .filter-check{opacity:1;}
+
+  /* Size unit selector */
+  .unit-selector{position:relative;display:inline-block;}
+  .unit-btn{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:2px 6px;font-family:var(--mono);font-size:10px;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:3px;}
+  .unit-dropdown{position:absolute;top:24px;left:0;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:4px;z-index:60;display:none;min-width:70px;box-shadow:0 6px 18px rgba(0,0,0,0.4);}
+  .unit-dropdown.open{display:block;}
+  .unit-opt{padding:6px 10px;border-radius:6px;font-size:11px;font-family:var(--mono);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:space-between;}
+  .unit-opt:hover{background:var(--surface2);}
+  .unit-opt.selected{color:var(--accent);}
+  .unit-check{opacity:0;font-size:10px;}
+  .unit-opt.selected .unit-check{opacity:1;}
+
+  .section-title{margin:0 16px 10px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-family:var(--mono);}
+
+  /* Folder cards */
+  .folder-list{padding:0 16px;display:flex;flex-direction:column;gap:8px;margin-bottom:8px;}
+  .folder-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all 0.2s;}
+  .folder-card:hover{border-color:rgba(79,142,247,0.4);background:var(--surface2);}
+  .folder-icon{width:38px;height:38px;background:linear-gradient(135deg,#f5a623,#f76b1c);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+  .folder-info{flex:1;min-width:0;}
+  .folder-name{font-size:13px;font-weight:600;}
+  .folder-meta{font-size:11px;color:var(--text3);margin-top:2px;}
+  .folder-arrow{color:var(--text3);font-size:14px;}
+
+  /* File list */
+  .apk-list{padding:0 16px 20px;display:flex;flex-direction:column;gap:8px;}
+  .apk-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;transition:all 0.2s;animation:fadeIn 0.3s ease;}
+  .apk-card:hover{border-color:rgba(79,142,247,0.4);}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+  .apk-main{display:flex;align-items:center;gap:10px;cursor:pointer;}
+  .apk-num{font-family:var(--mono);font-size:11px;color:var(--text3);min-width:20px;text-align:center;}
+  .apk-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+  .apk-info{flex:1;min-width:0;}
+  .apk-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;}
+  .apk-meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+  .apk-size{font-family:var(--mono);font-size:11px;color:var(--text2);background:var(--surface2);padding:1px 6px;border-radius:5px;}
+  .apk-date{font-size:11px;color:var(--text3);}
+  .apk-tag{font-size:10px;padding:1px 6px;border-radius:5px;font-weight:600;background:rgba(79,142,247,0.1);color:var(--accent);}
+  .apk-chevron{font-size:12px;color:var(--text3);transition:transform .2s;}
+  .apk-card.expanded .apk-chevron{transform:rotate(90deg);}
+
+  .apk-actions{display:flex;gap:6px;flex-shrink:0;}
+  .btn-dl{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:8px;padding:7px 12px;color:#fff;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;display:flex;align-items:center;gap:4px;transition:opacity 0.2s;}
+  .btn-dl:hover{opacity:0.85;}
+  .btn-icon{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 9px;color:var(--text2);cursor:pointer;font-size:13px;transition:all 0.2s;}
+  .btn-icon:hover{border-color:var(--accent);color:var(--accent);}
+  .btn-del{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 9px;color:var(--text3);cursor:pointer;font-size:13px;transition:all 0.2s;}
+  .btn-del:hover{border-color:#ef4444;color:#ef4444;}
+
+  /* Details panel */
+  .apk-details{max-height:0;overflow:hidden;transition:max-height .25s ease;}
+  .apk-card.expanded .apk-details{max-height:300px;}
+  .details-inner{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;}
+  .detail-row{display:flex;align-items:center;justify-content:space-between;font-size:12px;gap:8px;}
+  .detail-label{color:var(--text3);display:flex;align-items:center;gap:5px;white-space:nowrap;}
+  .detail-value{color:var(--text2);font-family:var(--mono);text-align:right;word-break:break-all;flex:1;}
+  .detail-value.link{color:var(--accent);cursor:pointer;text-decoration:underline;}
+  .details-actions{display:flex;gap:6px;margin-top:4px;}
+  .details-actions .btn-dl,.details-actions .btn-icon,.details-actions .btn-del{flex:1;justify-content:center;}
+
+  .empty{text-align:center;padding:48px 20px;color:var(--text3);}
+  .empty-icon{font-size:40px;margin-bottom:12px;opacity:0.5;}
+  .empty-title{font-size:15px;font-weight:600;margin-bottom:6px;color:var(--text2);}
+  .empty-sub{font-size:13px;}
+  .loading-bar{text-align:center;padding:32px;color:var(--text3);font-size:13px;}
+
+  /* New folder modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;display:none;align-items:center;justify-content:center;padding:20px;}
+  .modal-overlay.open{display:flex;}
+  .modal-box{background:var(--surface2);border:1px solid var(--border);border-radius:16px;padding:20px;width:100%;max-width:340px;}
+  .modal-title{font-size:15px;font-weight:600;margin-bottom:14px;}
+  .modal-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;margin-bottom:14px;}
+  .modal-input:focus{border-color:var(--accent);}
+  .modal-actions{display:flex;gap:8px;}
+  .modal-btn{flex:1;padding:10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:var(--sans);}
+  .modal-btn.cancel{background:var(--surface3);color:var(--text2);}
+  .modal-btn.confirm{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-top" id="headerTop">
+    <div class="logo">
+      <div class="logo-icon">☁️</div>
+      Cloud Files
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button id="refreshBtn" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:14px;cursor:pointer;" onclick="window._refresh()">↻</button>
+      <div class="header-count"><span id="totalCount">0</span> fayl</div>
+    </div>
+  </div>
+  <div class="selection-toolbar" id="selectionToolbar">
+    <div class="sel-row">
+      <button class="sel-x" id="selExitBtn">✕</button>
+      <div class="sel-count" id="selCount">0 seçildi</div>
+      <button class="sel-all" id="selAllBtn">Hamısını seç</button>
+    </div>
+    <div class="sel-actions">
+      <button class="sel-action-btn" id="selDownloadBtn">⬇️ Yüklə</button>
+      <button class="sel-action-btn danger" id="selDeleteBtn">🗑️ Sil</button>
+    </div>
+  </div>
+  <div class="storage-bar-wrap" id="storageBarWrap">
+    <div class="storage-track"><div class="storage-fill" id="storageFill" style="width:0%"></div></div>
+    <div class="storage-label" id="storageLabel"><b>0 MB</b> / 1 GB</div>
+  </div>
+</header>
+
+<div class="breadcrumb" id="breadcrumb"></div>
+
+<div class="upload-zone" id="uploadZone">
+  <input type="file" id="fileInput">
+  <div class="upload-row">
+    <div class="upload-icon">⬆️</div>
+    <div class="upload-text">
+      <div class="upload-title">Fayl yüklə</div>
+      <div class="upload-sub">Basa bas və ya sürüklə • Maks 50MB</div>
+    </div>
+  </div>
+</div>
+
+<div class="action-row">
+  <button class="btn-newfolder" id="btnNewFolder">📁 Yeni qovluq</button>
+</div>
+
+<div class="progress-wrap" id="progressWrap">
+  <div class="progress-label">
+    <span id="progressName">Yüklənir...</span>
+    <span id="progressPct">0%</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+</div>
+
+<div class="filter-bar">
+  <input class="search-box" type="text" id="searchBox" placeholder="🔍  Axtar...">
+  <div class="filter-icon-btn" id="filterBtn">⇅
+    <div class="filter-dropdown" id="filterDropdown">
+      <div class="filter-opt selected" data-sort="new">Yeni → Köhnə <span class="filter-check">✓</span></div>
+      <div class="filter-opt" data-sort="old">Köhnə → Yeni <span class="filter-check">✓</span></div>
+      <div class="filter-opt" data-sort="az">Ad A→Z <span class="filter-check">✓</span></div>
+      <div class="filter-opt" data-sort="size">Ölçü ↓ <span class="filter-check">✓</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="section-title" id="listLabel">FAYLLAR</div>
+<div class="folder-list" id="folderList"></div>
+<div class="apk-list" id="apkList"><div class="loading-bar">⏳ Yüklənir...</div></div>
+<div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="folderModal">
+  <div class="modal-box">
+    <div class="modal-title">📁 Yeni qovluq</div>
+    <input class="modal-input" id="folderNameInput" placeholder="Qovluq adı..." maxlength="40">
+    <div class="modal-actions">
+      <button class="modal-btn cancel" id="folderCancel">Ləğv et</button>
+      <button class="modal-btn confirm" id="folderConfirm">Yarat</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, orderBy, query } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBeN5gC22clhNWI21T8wIGLBZYOVVM4rJU",
+  authDomain: "apk-yukleme.firebaseapp.com",
+  projectId: "apk-yukleme",
+  storageBucket: "apk-yukleme.firebasestorage.app",
+  messagingSenderId: "153532354471",
+  appId: "1:153532354471:web:7fefb7745cd27b96a23082"
+};
+
+const SUPABASE_URL = 'https://bvdfjgriiawbdghndmtu.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_RGbDBp4P5u2zTj0lbfVZ-w_54dfZ8UL';
+const BUCKET = 'apk-files';
+const STORAGE_LIMIT_BYTES = 1024 * 1024 * 1024; // 1GB free tier
+
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+
+let allFiles = [];      // all file docs
+let allFolders = [];    // all folder docs
+let currentPath = ['root']; // path stack (root is default landing)
+let sortMode = 'new';
+let selectMode = false;
+let selectedIds = new Set();
+const unitPrefs = {}; // per-file docId -> unit override
+
+// ---------- Utilities ----------
+const UNITS = ['auto','B','KB','MB','GB'];
+
+function autoUnit(bytes) {
+  if (bytes >= 1073741824) return 'GB';
+  if (bytes >= 1048576) return 'MB';
+  if (bytes >= 1024) return 'KB';
+  return 'B';
+}
+
+function fmtSizeUnit(bytes, unit) {
+  if (!bytes && bytes !== 0) return '?';
+  const u = (unit === 'auto' || !unit) ? autoUnit(bytes) : unit;
+  const div = { B:1, KB:1024, MB:1048576, GB:1073741824 }[u];
+  const val = bytes / div;
+  return `${val.toFixed(u==='B'?0:1)} ${u}`;
+}
+
+function fmtDateParts(ts) {
+  const d = new Date(ts);
+  const pad = n => n.toString().padStart(2,'0');
+  const date = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;
+  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  return { date, time };
+}
+
+function getIcon(e){return{APK:'📱',AAB:'📦',ZIP:'🗜️',MCADDON:'⛏️',MCPACK:'🎮'}[e]||'📄';}
+
+function pathKey(pathArr) { return pathArr.join('/'); }
+
+// ---------- Load data ----------
+async function loadData() {
+  try {
+    const q1 = query(collection(db,'apk_files'), orderBy('uploadedAt','desc'));
+    const snap1 = await getDocs(q1);
+    allFiles = snap1.docs.map(d=>({...d.data(),docId:d.id, path: d.data().path || ['root',"apk's"]}));
+
+    try {
+      const q2 = query(collection(db,'apk_folders'), orderBy('createdAt','desc'));
+      const snap2 = await getDocs(q2);
+      allFolders = snap2.docs.map(d=>({...d.data(),docId:d.id, path: d.data().path || ['root',"apk's"]}));
+    } catch(e) { allFolders = []; }
+
+    render();
+  } catch(e) {
+    document.getElementById('apkList').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Xəta</div><div class="empty-sub">${e.message}</div></div>`;
+  }
+}
+
+// ---------- Upload ----------
+async function uploadToSupabase(file) {
+  const pw = document.getElementById('progressWrap');
+  const pf = document.getElementById('progressFill');
+  const pn = document.getElementById('progressName');
+  const pp = document.getElementById('progressPct');
+  pw.classList.add('active');
+  pn.textContent = file.name;
+  pf.style.width = '0%';
+  pp.textContent = '0%';
+
+  const fileName = `${Date.now()}_${file.name}`;
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${fileName}`);
+    xhr.setRequestHeader('Authorization', `Bearer ${SUPABASE_KEY}`);
+    xhr.setRequestHeader('x-upsert', 'true');
+    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        const pct = Math.round(e.loaded/e.total*100);
+        pf.style.width = pct+'%';
+        pp.textContent = pct+'%';
+      }
+    };
+
+    xhr.onload = () => {
+      pw.classList.remove('active');
+      if (xhr.status === 200 || xhr.status === 201) {
+        const url = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${fileName}`;
+        resolve(url);
+      } else {
+        reject(new Error('Yükləmə xətası: ' + xhr.status));
+      }
+    };
+    xhr.onerror = () => { pw.classList.remove('active'); reject(new Error('Şəbəkə xətası')); };
+    xhr.send(file);
+  });
+}
+
+async function handleUpload(file) {
+  showToast('⬆️ Yüklənir: '+file.name, 'info');
+  try {
+    const url = await uploadToSupabase(file);
+    const entry = {
+      name: file.name, url, size: file.size,
+      uploadedAt: Date.now(),
+      ext: file.name.split('.').pop().toUpperCase(),
+      path: [...currentPath]
+    };
+    const docRef = await addDoc(collection(db,'apk_files'), entry);
+    allFiles.unshift({...entry, docId: docRef.id});
+    render();
+    showToast('✅ Yükləndi!', 'success');
+  } catch(err) {
+    console.error(err);
+    showToast('❌ '+err.message, 'error');
+  }
+}
+
+async function deleteEntry(docId, url) {
+  if (!confirm('Silmək istəyirsən?')) return;
+  try {
+    const fileName = url.split('/').pop();
+    await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${fileName}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+  } catch(e) {}
+  await deleteDoc(doc(db,'apk_files',docId));
+  allFiles = allFiles.filter(a=>a.docId!==docId);
+  render();
+  showToast('🗑️ Silindi','info');
+}
+
+async function createFolder(name) {
+  if (!name || !name.trim()) return;
+  const entry = { name: name.trim(), path: [...currentPath], createdAt: Date.now() };
+  const docRef = await addDoc(collection(db,'apk_folders'), entry);
+  allFolders.unshift({...entry, docId: docRef.id});
+  render();
+  showToast('📁 Qovluq yaradıldı','success');
+}
+
+// ---------- Render ----------
+function renderBreadcrumb() {
+  const bc = document.getElementById('breadcrumb');
+  bc.innerHTML = currentPath.map((seg,i)=>{
+    const isLast = i === currentPath.length-1;
+    return `<span class="crumb ${isLast?'active':''}" data-idx="${i}">${seg}</span>${!isLast?'<span class="crumb-sep">/</span>':''}`;
+  }).join('');
+  bc.querySelectorAll('.crumb').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const idx = parseInt(el.dataset.idx);
+      currentPath = currentPath.slice(0, idx+1);
+      render();
+    });
+  });
+}
+
+function renderStorage() {
+  const total = allFiles.reduce((s,a)=>s+(a.size||0),0);
+  const pct = Math.min(100, (total/STORAGE_LIMIT_BYTES)*100);
+  document.getElementById('storageFill').style.width = pct+'%';
+  document.getElementById('storageLabel').innerHTML = `<b>${fmtSizeUnit(total,'auto')}</b> / 1 GB`;
+  document.getElementById('totalCount').textContent = allFiles.length;
+}
+
+function render() {
+  renderBreadcrumb();
+  renderStorage();
+
+  const folderList = document.getElementById('folderList');
+  const apkList = document.getElementById('apkList');
+  const q = document.getElementById('searchBox').value.toLowerCase();
+  const pk = pathKey(currentPath);
+
+  // Folders in current path
+  let folders = allFolders.filter(f => pathKey(f.path) === pk);
+  if (q) folders = folders.filter(f => f.name.toLowerCase().includes(q));
+
+  folderList.innerHTML = folders.map(f => `
+    <div class="folder-card" data-folder="${f.name}">
+      <div class="folder-icon">📁</div>
+      <div class="folder-info">
+        <div class="folder-name">${f.name}</div>
+        <div class="folder-meta">Qovluq</div>
+      </div>
+      <div class="folder-arrow">›</div>
+    </div>
+  `).join('');
+  folderList.querySelectorAll('.folder-card').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      currentPath = [...currentPath, el.dataset.folder];
+      render();
+    });
+  });
+
+  // Files in current path
+  let files = allFiles.filter(a => pathKey(a.path||['root',"apk's"]) === pk);
+  if (q) files = files.filter(a=>a.name.toLowerCase().includes(q));
+
+  if (sortMode==='old') files = [...files].reverse();
+  else if (sortMode==='az') files = [...files].sort((a,b)=>a.name.localeCompare(b.name));
+  else if (sortMode==='size') files = [...files].sort((a,b)=>(b.size||0)-(a.size||0));
+  // 'new' is already default order (desc by uploadedAt)
+
+  document.getElementById('listLabel').textContent = q?`FAYLLAR · "${q}"`:'FAYLLAR';
+
+  if (!folders.length && !files.length) {
+    apkList.innerHTML=`<div class="empty"><div class="empty-icon">📂</div><div class="empty-title">${q?'Tapılmadı':'Bu qovluq boşdur'}</div><div class="empty-sub">${q?'Başqa söz sına':'Fayl yüklə və ya qovluq yarat'}</div></div>`;
+    return;
+  }
+
+  apkList.innerHTML = files.map((a,i)=>{
+    const unit = unitPrefs[a.docId] || 'auto';
+    const { date, time } = fmtDateParts(a.uploadedAt);
+    return `
+    <div class="apk-card" id="card-${a.docId}">
+      <div class="apk-main" data-toggle="${a.docId}" data-select="${a.docId}">
+        <div class="apk-checkbox" data-checkbox="${a.docId}">✓</div>
+        <div class="apk-icon">${getIcon(a.ext)}</div>
+        <div class="apk-info">
+          <div class="apk-name" title="${a.name}">${a.name}</div>
+          <div class="apk-meta">
+            <span class="apk-tag">${a.ext}</span>
+            <span class="apk-size">${fmtSizeUnit(a.size, unit)}</span>
+            <span class="apk-date">${date}</span>
+          </div>
+        </div>
+        <a class="apk-card-download" href="${a.url}" target="_blank" download data-dl="${a.docId}">⬇️</a>
+        <div class="apk-chevron">›</div>
+      </div>
+      <div class="apk-details">
+        <div class="details-inner">
+          <div class="detail-row">
+            <span class="detail-label">📄 Ad</span>
+            <span class="detail-value">${a.name}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">📏 Ölçü</span>
+            <span class="detail-value">
+              <div class="unit-selector">
+                <div class="unit-btn" data-unitbtn="${a.docId}">${fmtSizeUnit(a.size, unit)} ▾
+                  <div class="unit-dropdown" id="unitdd-${a.docId}">
+                    ${UNITS.map(u=>`<div class="unit-opt ${unit===u?'selected':''}" data-unit="${u}" data-doc="${a.docId}">${u==='auto'?'Avtomatik':u} <span class="unit-check">✓</span></div>`).join('')}
+                  </div>
+                </div>
+              </div>
+            </span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">🔗 Link</span>
+            <span class="detail-value link" data-copylink="${a.url}">Kopyala</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">🕐 Saat</span>
+            <span class="detail-value">${time}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">📅 Tarix</span>
+            <span class="detail-value">${date}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">🏷️ Növ</span>
+            <span class="detail-value">${a.ext}</span>
+          </div>
+          <div class="details-actions">
+            <a class="btn-dl" href="${a.url}" target="_blank" download>⬇️ Yüklə</a>
+            <button class="btn-del" data-del="${a.docId}" data-url="${a.url}">🗑️ Sil</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `}).join('');
+
+  // Bind card toggle / selection
+  apkList.querySelectorAll('[data-toggle]').forEach(el=>{
+    const docId = el.dataset.toggle;
+    let pressTimer = null;
+    let longPressed = false;
+
+    const startPress = () => {
+      longPressed = false;
+      pressTimer = setTimeout(()=>{
+        longPressed = true;
+        enterSelectMode(docId);
+      }, 450);
+    };
+    const cancelPress = () => { clearTimeout(pressTimer); };
+
+    el.addEventListener('touchstart', startPress, {passive:true});
+    el.addEventListener('touchend', cancelPress);
+    el.addEventListener('touchmove', cancelPress);
+    el.addEventListener('mousedown', startPress);
+    el.addEventListener('mouseup', cancelPress);
+    el.addEventListener('mouseleave', cancelPress);
+
+    el.addEventListener('click', (e)=>{
+      if (longPressed) { longPressed = false; return; }
+      if (selectMode) {
+        toggleSelect(docId);
+        return;
+      }
+      const card = document.getElementById('card-'+docId);
+      apkList.querySelectorAll('.apk-card.expanded').forEach(c=>{ if(c!==card) c.classList.remove('expanded'); });
+      card.classList.toggle('expanded');
+    });
+  });
+
+  // Bind individual download button (works normally, stop propagation so it doesn't trigger toggle/select)
+  apkList.querySelectorAll('[data-dl]').forEach(el=>{
+    el.addEventListener('click',(e)=>{
+      e.stopPropagation();
+      if (selectMode) e.preventDefault();
+    });
+  });
+
+  // Re-apply visual selected state after re-render
+  selectedIds.forEach(id=>{
+    const card = document.getElementById('card-'+id);
+    if (card) card.classList.add('selected');
+  });
+  updateSelectionUI();
+
+  // Bind unit selector
+  apkList.querySelectorAll('[data-unitbtn]').forEach(el=>{
+    el.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const dd = document.getElementById('unitdd-'+el.dataset.unitbtn);
+      document.querySelectorAll('.unit-dropdown.open').forEach(d=>{ if(d!==dd) d.classList.remove('open'); });
+      dd.classList.toggle('open');
+    });
+  });
+  apkList.querySelectorAll('.unit-opt').forEach(el=>{
+    el.addEventListener('click',(e)=>{
+      e.stopPropagation();
+      unitPrefs[el.dataset.doc] = el.dataset.unit;
+      render();
+    });
+  });
+
+  // Bind copy link
+  apkList.querySelectorAll('[data-copylink]').forEach(el=>{
+    el.addEventListener('click',(e)=>{
+      e.stopPropagation();
+      navigator.clipboard.writeText(el.dataset.copylink).then(()=>showToast('✅ Link kopyalandı!','success'));
+    });
+  });
+
+  // Bind delete
+  apkList.querySelectorAll('[data-del]').forEach(el=>{
+    el.addEventListener('click',(e)=>{
+      e.stopPropagation();
+      deleteEntry(el.dataset.del, el.dataset.url);
+    });
+  });
+}
+
+// ---------- Selection mode ----------
+function enterSelectMode(firstDocId) {
+  selectMode = true;
+  selectedIds.clear();
+  if (firstDocId) selectedIds.add(firstDocId);
+  document.getElementById('apkList').classList.add('select-mode');
+  document.getElementById('headerTop').classList.add('hidden');
+  document.getElementById('storageBarWrap').style.display = 'none';
+  document.getElementById('selectionToolbar').classList.add('active');
+  document.querySelectorAll('.apk-card.expanded').forEach(c=>c.classList.remove('expanded'));
+  render();
+}
+
+function exitSelectMode() {
+  selectMode = false;
+  selectedIds.clear();
+  document.getElementById('apkList').classList.remove('select-mode');
+  document.getElementById('headerTop').classList.remove('hidden');
+  document.getElementById('storageBarWrap').style.display = '';
+  document.getElementById('selectionToolbar').classList.remove('active');
+  render();
+}
+
+function toggleSelect(docId) {
+  if (selectedIds.has(docId)) selectedIds.delete(docId);
+  else selectedIds.add(docId);
+  const card = document.getElementById('card-'+docId);
+  if (card) card.classList.toggle('selected', selectedIds.has(docId));
+  updateSelectionUI();
+}
+
+function updateSelectionUI() {
+  const count = selectedIds.size;
+  document.getElementById('selCount').textContent = `${count} seçildi`;
+  document.getElementById('selDownloadBtn').disabled = count === 0;
+  document.getElementById('selDeleteBtn').disabled = count === 0;
+}
+
+document.getElementById('selExitBtn').addEventListener('click', exitSelectMode);
+
+document.getElementById('selAllBtn').addEventListener('click', ()=>{
+  const pk = pathKey(currentPath);
+  const visibleFiles = allFiles.filter(a => pathKey(a.path||['root']) === pk);
+  const allSelected = visibleFiles.every(a => selectedIds.has(a.docId));
+  if (allSelected) {
+    selectedIds.clear();
+  } else {
+    visibleFiles.forEach(a => selectedIds.add(a.docId));
+  }
+  render();
+});
+
+document.getElementById('selDownloadBtn').addEventListener('click', ()=>{
+  if (!selectedIds.size) return;
+  const files = allFiles.filter(a => selectedIds.has(a.docId));
+  files.forEach((f, i) => {
+    setTimeout(()=>{
+      const a = document.createElement('a');
+      a.href = f.url; a.download = f.name; a.target = '_blank';
+      document.body.appendChild(a); a.click(); a.remove();
+    }, i * 400);
+  });
+  showToast(`⬇️ ${files.length} fayl yüklənir...`, 'info');
+});
+
+document.getElementById('selDeleteBtn').addEventListener('click', async ()=>{
+  if (!selectedIds.size) return;
+  if (!confirm(`${selectedIds.size} faylı silmək istəyirsən?`)) return;
+  const files = allFiles.filter(a => selectedIds.has(a.docId));
+  for (const f of files) {
+    try {
+      const fileName = f.url.split('/').pop();
+      await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${fileName}`, {
+        method: 'DELETE', headers: { Authorization: `Bearer ${SUPABASE_KEY}` }
+      });
+    } catch(e) {}
+    await deleteDoc(doc(db,'apk_files',f.docId));
+  }
+  allFiles = allFiles.filter(a => !selectedIds.has(a.docId));
+  exitSelectMode();
+  showToast('🗑️ Fayllar silindi','info');
+});
+
+// ---------- Toast ----------
+let toastTimer;
+function showToast(msg,type='info') {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast show '+type;
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+// ---------- Events ----------
+document.getElementById('fileInput').addEventListener('change',async(e)=>{
+  const file=e.target.files[0]; if(!file) return;
+  await handleUpload(file); e.target.value='';
+});
+
+const zone=document.getElementById('uploadZone');
+zone.addEventListener('dragover',(e)=>{e.preventDefault();zone.classList.add('drag-over');});
+zone.addEventListener('dragleave',()=>zone.classList.remove('drag-over'));
+zone.addEventListener('drop',async(e)=>{
+  e.preventDefault();zone.classList.remove('drag-over');
+  const file=e.dataTransfer.files[0]; if(file) await handleUpload(file);
+});
+
+document.getElementById('searchBox').addEventListener('input',render);
+
+// Filter dropdown
+const filterBtn = document.getElementById('filterBtn');
+const filterDropdown = document.getElementById('filterDropdown');
+filterBtn.addEventListener('click',(e)=>{
+  e.stopPropagation();
+  filterDropdown.classList.toggle('open');
+  filterBtn.classList.toggle('active');
+});
+filterDropdown.querySelectorAll('.filter-opt').forEach(el=>{
+  el.addEventListener('click',(e)=>{
+    e.stopPropagation();
+    sortMode = el.dataset.sort;
+    filterDropdown.querySelectorAll('.filter-opt').forEach(o=>o.classList.remove('selected'));
+    el.classList.add('selected');
+    filterDropdown.classList.remove('open');
+    render();
+  });
+});
+
+document.addEventListener('click', ()=>{
+  filterDropdown.classList.remove('open');
+  document.querySelectorAll('.unit-dropdown.open').forEach(d=>d.classList.remove('open'));
+});
+
+// New folder modal
+const folderModal = document.getElementById('folderModal');
+document.getElementById('btnNewFolder').addEventListener('click',()=>{
+  document.getElementById('folderNameInput').value='';
+  folderModal.classList.add('open');
+  setTimeout(()=>document.getElementById('folderNameInput').focus(),100);
+});
+document.getElementById('folderCancel').addEventListener('click',()=>folderModal.classList.remove('open'));
+folderModal.addEventListener('click',(e)=>{ if(e.target===folderModal) folderModal.classList.remove('open'); });
+document.getElementById('folderConfirm').addEventListener('click',async()=>{
+  const name = document.getElementById('folderNameInput').value;
+  if(!name.trim()) return;
+  await createFolder(name);
+  folderModal.classList.remove('open');
+});
+document.getElementById('folderNameInput').addEventListener('keydown',(e)=>{
+  if(e.key==='Enter') document.getElementById('folderConfirm').click();
+});
+
+loadData();
+</script>
+</body>
+</html>
